@@ -21,8 +21,8 @@ server.exe
    ```
 2. Compile e execute o keylogger:
    ```bash
-   gcc keylogger.c -o keylogger.exe -lws2_32
-   keylogger.exe
+   gcc keyLogger.c -o keyLogger.exe -lws2_32
+   keyLogger.exe
    ```
 
 ### 📍 Como Descobrir o IP do Servidor?
